@@ -4,13 +4,18 @@
 #include <stdio.h>
 #include <pthread.h>
 
-
+int bufLen = 1024;
+void handle_400(int clntSock)
+{
+	char *err_msg = "HTTP/1.0 400 Malformed Request";
+	ssize_t byteSend = send(clntSock, err_msg, sizeof(err_msg), 0);
+}
 void th_handler(void * c)
 {
 	int clntSock = (int)c;
-	printf("Someone connecteed!!!", c, clntSock);
+	printf("Someone connecteed!!! \n", c, clntSock);
 //	printf("ip is %d \n", clntAddr.sin_addr.s_addr);
-	char buffer[1024];
+	char buffer[bufLen];
 	ssize_t byteRecv = recv(clntSock, buffer, 1024, 0);
 	
 	printf("Data recieved : \n");
@@ -21,11 +26,33 @@ void th_handler(void * c)
 //	printf("%s \n", s);
 
 	char * tok;
-	tok = strtok(s, " \r");
+	tok = strtok(s, " \r\n");
+	int len = 0;
 	while(tok != NULL)
 	{
-		printf("%s x\n", tok);
-		tok = strtok(NULL," \r");
+	//	printf("%s \n", tok[0]);
+		printf("%s \n", tok);
+		len++;
+		tok = strtok(NULL," \r\n");
+	}
+	char request[len][bufLen];
+	tok = strtok(s, " \r\n");
+	len = 0;
+	while(tok != NULL)
+	{
+		strcpy(request[len], tok);
+		len++;
+		tok = strtok(NULL, " \r\n");
+	}
+	
+	if(strcmp("GET", request[0]) != 0)
+	{
+		handle_400(clntSock);
+	}
+	else
+	{
+		char * docPath = request[1];
+		FILE *fp = fopen(strcat(docPath, "MakeFile"), "r");
 	}
 	ssize_t byteSend = send(clntSock, buffer, byteRecv, 0);
 	
