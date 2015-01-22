@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <pthread.h>
 
+char * docRoot;
 int bufLen = 1024;
 void handle_400(int clntSock)
 {
@@ -52,7 +53,10 @@ void th_handler(void * c)
 	else
 	{
 		char * docPath = request[1];
-		FILE *fp = fopen(strcat(docPath, "MakeFile"), "r");
+//		if(docPath + (strlen(docPath) - 1) == '/')
+//			printf("Uhhhhhhhhh %d %s \n", strlen(docPath), );
+//		FILE *fp = fopen(strcat(docPath, "MakeFile"), "r");
+
 	}
 	ssize_t byteSend = send(clntSock, buffer, byteRecv, 0);
 	
@@ -62,13 +66,21 @@ void th_handler(void * c)
 
 int main(int argc, char *argv[])
 {
-	if(argc != 2)
+
+	if(argc != 3)
 	{
-		perror("Incorrect parameter\n");
+		perror("Usage: <Port> <Document Root>\n");
+		exit(1);
+	}
+	if(atoi(argv[1]) < 0 || atoi(argv[1]) > 65535)
+	{
+		printf("port number %s \n", argv[1] );
+		perror("Incorrect port number\n");
 		exit(1);
 	}
 	in_port_t servPort = atoi(argv[1]);
-	
+	docRoot = argv[2];
+	printf(" hoho %c \n", docRoot[3]);
 	//Create socket
 	
 	int servSock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
