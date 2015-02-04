@@ -1,5 +1,6 @@
+
 all : httpserver.c
-	gcc -pthread -o httpd httpserver.c
+	gcc -g -pthread -o httpd httpserver.c
 
 clean :
-	rm httpd
+	rm -f httpd *.o
