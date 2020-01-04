@@ -1,3 +1,3 @@
-Basic HTTP server
+C Http Server
 
-Only recoginizes GET, but can handle multiple connections simultaneous
+Working GET functionality with ability to handle multiple connections
