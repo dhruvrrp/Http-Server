@@ -19,155 +19,217 @@ int bufLen = 1024;
 	printf("alaarrmm \n");
 	signal(SIGALRM, alarm_f);
 }**/
-void handle_400(int clntSock)
+/**************************************
+ * 
+ * NAME: handle_400
+ * 
+ * DESCRIPTION: send 400 bad request response
+ * 
+ * INPUT: 
+ *      PARAMETERS:
+ * 			int			clientSocket		Socket at which client connects
+ * 		GLOBAL:
+ * 			None
+ * 		RETURN:
+ * 			None
+ * 
+ */
+void handle_400(int clientSocket)
 {
 
 	char *err_msg = "HTTP/1.1 400 Bad Request \r\n\r\n";	
-	printf(" Error 400 %d \n", sizeof(err_msg));
-	ssize_t byteSend = send(clntSock, err_msg, strlen(err_msg), 0);
+	printf(" Error 400 %ld \n", sizeof(err_msg));
+	ssize_t byteSend = send(clientSocket, err_msg, strlen(err_msg), 0);
 
 }
-void handle_404(int clntSock)
+/**************************************
+ * 
+ * NAME: handle_404
+ * 
+ * DESCRIPTION: send 404 Not Found response
+ * 
+ * INPUT: 
+ *      PARAMETERS:
+ * 			int			clientSocket		Socket at which client connects
+ * 		GLOBAL:
+ * 			None
+ * 		RETURN:
+ * 			None
+ * 
+ */
+void handle_404(int clientSocket)
 {
 
 	char *err_msg = "HTTP/1.1 404 Not Found \r\n\r\n";	
-	printf(" Error 404 %d \n", sizeof(err_msg));
-	ssize_t byteSend = send(clntSock, err_msg, strlen(err_msg), 0);
+	printf(" Error 404 %ld \n", sizeof(err_msg));
+	ssize_t byteSend = send(clientSocket, err_msg, strlen(err_msg), 0);
 
 }
-void handle_403(int clntSock)
+/**************************************
+ * 
+ * NAME: handle_403
+ * 
+ * DESCRIPTION: send 403 Forbidden response
+ * 
+ * INPUT: 
+ *      PARAMETERS:
+ * 			int			clientSocket		Socket at which client connects
+ * 		GLOBAL:
+ * 			None
+ * 		RETURN:
+ * 			None
+ * 
+ */
+void handle_403(int clientSocket)
 {
 
 	char *err_msg = "HTTP/1.1 403 Forbidden \r\n\r\n";	
-	printf(" Error 403 %d \n", sizeof(err_msg));
-	ssize_t byteSend = send(clntSock, err_msg, strlen(err_msg), 0);
+	printf(" Error 403 %ld \n", sizeof(err_msg));
+	ssize_t byteSend = send(clientSocket, err_msg, strlen(err_msg), 0);
 
 }
-
+/**************************************
+ * 
+ * NAME: void th_handler
+ * 
+ * DESCRIPTION: Handle the http request of the client connected
+ * 
+ * INPUT: 
+ *      PARAMETERS:
+ * 			void * 		c			Pointer to the client socket which
+ * 									connected to our server
+ * 		GLOBAL:
+ * 			None
+ * 		RETURN:
+ * 			None
+ * 
+ */
 void *th_handler(void * c)
 {
 	struct stat staa;
+	// Cast client socket to int to utilize
+	int clientSocket = (int)c;
+	printf("Someone connecteed!!! \n", c, clientSocket);
+	// Create msgBuffer for request and totalRecv to track size of request
+	char msgBuffer[bufLen];
+	int totalRecv = 0;
 
-	int clntSock = (int)c;
-	printf("Someone connecteed!!! \n", c, clntSock);
-//	printf("ip is %d \n", clntAddr.sin_addr.s_addr);
-	char buffer[bufLen];
-	int byteRecv = 0;
-	int cuP = 0;
+	// loop to keep recieving data till two CRLF signifing end of request
 	do
 	{
-		byteRecv = recv(clntSock, buffer, bufLen, 0);
-		cuP = cuP + byteRecv;
-//	fwrite(buffer, byteRecv, 1, stdout);
-
-		
+		totalRecv += recv(clientSocket, msgBuffer, bufLen, 0);
 	}
-	while(buffer[cuP-1] != '\n' && buffer[cuP -2] != '\r' && buffer[cuP -3] != '\n' && buffer[cuP - 4] != '\r');
+	while(msgBuffer[totalRecv-1] != '\n' 
+			&& msgBuffer[totalRecv -2] != '\r' 
+			&& msgBuffer[totalRecv -3] != '\n' 
+			&& msgBuffer[totalRecv - 4] != '\r');
 
+
+	// Copy recieved message to a char * to be able to tokenize it
+	char s[totalRecv];
+
+	strcpy(s, msgBuffer);
 	
-//	printf("Data recieved : \n");
-	fwrite(buffer, byteRecv, 1, stdout);
 
+	// Tokenize the request using CRLF which seperates parts of request
 
-	char s[byteRecv];
-
-	strcpy(s, buffer);
-	
-
-//	printf("%s \n", s);
-
-	char * tok;
-	tok = strtok(s, " \r\n");
-	int len = 0;
+	char * tokens;
+	tokens = strtok(s, " \r\n");
+	int count = 0;
 	char ** request;
 	request = (char **) malloc(bufLen);
-	while(tok != NULL)
+	// Iterate over all tokens while caculating number of tokens
+	while(tokens != NULL)
 	{
-	//	printf("%s \n", tok[0]);
-		request[len] = tok;
-//		printf("%s \n", request[len]);
-		len++;
-		tok = strtok(NULL," \r\n");
-//		printf("haha \n");
+		request[count] = tokens;
+		count++;
+		tokens = strtok(NULL," \r\n");
 	}
-	printf("Length: %d \n  ", len);
+
+	// Extract path to the file requested and generate the real path to use
+	// with our file system
+
 	char * docPath = request[1];
-	printf("Docpath: %s \n", docPath);
-//	char * finalPath;
 	char * finalPath = (char *) malloc(1 + strlen(docPath) + strlen(docRoot) + 11);
 	memset(finalPath, 0, sizeof(char) * strlen(finalPath));
 	strcat(finalPath, docRoot);
 	strcat(finalPath, docPath);
-	char * absI = (char *) malloc(PATH_MAX + 1);
-	memset(absI, 0, sizeof(char)*strlen(absI));
-//	free(absI);
-	char * hoho = realpath(finalPath, absI);
-	printf("Final Path : %s \n Real path : %s \n", finalPath, absI);
+
+	char * realPath = (char *) malloc(PATH_MAX + 1);
+	memset(realPath, 0, sizeof(char)*strlen(realPath));
+	char * resolved = realpath(finalPath, realPath);
+
+	// Error if request type is not GET
 	if(strcmp("GET", request[0]) != 0)
 	{
 		printf("Error \n");
-		handle_400(clntSock);
+		handle_400(clientSocket);
 	}
-	else if(len < 3)
+	// If tokens <3 then we do not have enough information to process request
+	else if(count < 3)
 	{
-		handle_400(clntSock);
+		handle_400(clientSocket);
 	}
+	// Cannot handle protocols other than HTTP
 	else if(strstr(request[2], "HTTP") == NULL)
 	{
 		printf("Http error \n");
-		handle_400(clntSock);
+		handle_400(clientSocket);
 	}
+	// Document path is malformed causing error
 	else if(docPath[0] != '/')
 	{
 		printf("400 \n");
-		handle_400(clntSock);
+		handle_400(clientSocket);
 	}
 	else
 	{
+		// Start forming response for cliient
 		char * response = (char *) malloc(bufLen);
 		strcat(response, "HTTP/1.1 200 OK \r\n");
-		int rr;
-		printf("huh\n");
-		struct stat sbuf;
-		stat(absI, &sbuf);
-		if(S_ISDIR(sbuf.st_mode))
+		int fileDescriptor;
+		struct stat fileStat;
+		stat(realPath, &fileStat);
+		// if file pointed by path is a folder, return the index.html for that 
+		// folder
+		if(S_ISDIR(fileStat.st_mode))
 		{
-			if(absI[strlen(absI) - 1] != '/')
-				strcat(absI, "/index.html");
+			if(realPath[strlen(realPath) - 1] != '/')
+				strcat(realPath, "/index.html");
 			else
 			{
-				if(strlen(absI) == 1)
-					absI = absI + 1;
-				strcat(absI, "index.html");
+				if(strlen(realPath) == 1)
+					realPath = realPath + 1;
+				strcat(realPath, "index.html");
 			}
-		//	if(absI[0] == '/')
-		//		absI = absI + 1;
-			printf("Path to file %s \n", absI);
-			rr = open(absI, 0);
+
+			fileDescriptor = open(realPath, 0);
 			strcat(response, "Content-Type: text/html \r\n");
-			printf("File open %d\n", rr);
-			if(rr == -1)
+
+			// If index.html does not exist for the folder, send 404 error
+			if(fileDescriptor == -1)
 			{
 				printf("Errno %s \n", strerror(errno));
-				handle_404(clntSock);
+				handle_404(clientSocket);
 			}
 
 		}
 		else
 		{
-	//		if(absI[0] == '/')
-//				absI = absI + 1;
-			rr = open(absI, 0);
-			if(rr != -1)
+			// If path does not lead to a folder, open file
+			fileDescriptor = open(realPath, 0);
+
+			if(fileDescriptor != -1)
 			{
-				printf("Is file %d\n", rr);
+				printf("Is file %d\n", fileDescriptor);
+				// Tokenize path to find out file type and add it to response
+				// {filename.filetype}
 				char *token;
-				token = strtok(absI, ".");
-				printf("First strtok \n");
+				token = strtok(realPath, ".");
+				// Ignore file name token
 				char * ftype;
 				if(token != NULL)
 					token = strtok(NULL, ".");
-				printf("Second strtok \n");
 				if(strcmp(token, "png") == 0)
 					ftype = "image/png";
 				else if(strcmp(token, "jpeg") == 0)
@@ -176,9 +238,10 @@ void *th_handler(void * c)
 					ftype = "text/html";
 				else
 				{
+					// Unidentified file type, send 400 error
 					printf("Send 400 \n");
-					rr = -1;
-					handle_400(clntSock);
+					fileDescriptor = -1;
+					handle_400(clientSocket);
 				}
 				strcat(response, "Content-Type: ");
 				strcat(response, ftype);
@@ -186,30 +249,30 @@ void *th_handler(void * c)
 			}
 			else
 			{
-				handle_404(clntSock);
+				handle_404(clientSocket);
 			}
 		}
-		if(rr != -1)
+		if(fileDescriptor != -1)
 		{
 			printf("hoho \n");
-			fstat(rr, &staa);
+			fstat(fileDescriptor, &staa);
 			if(staa.st_mode & S_IROTH)
 			{
 				int total = staa.st_size;
-				printf("size sent %d \n", staa.st_size);
+				printf("size sent %ld \n", staa.st_size);
 				strcat(response, "Content-Length: ");
 				char * numS= (char *) malloc(200);;
-				sprintf(numS, "%d", staa.st_size);
+				sprintf(numS, "%ld", staa.st_size);
 				strcat(response, numS);	
 				strcat(response, "\r\n\r\n");
 
-				int a = send(clntSock, response, strlen(response), 0);	
+				int a = send(clientSocket, response, strlen(response), 0);	
 
-				int qqq = sendfile(clntSock, rr, NULL, staa.st_size);
+				int qqq = sendfile(clientSocket, fileDescriptor, NULL, staa.st_size);
 			}
 			else
 			{
-				handle_403(clntSock);
+				handle_403(clientSocket);
 			}
 		free(response);
 		}
@@ -217,28 +280,28 @@ void *th_handler(void * c)
 	struct timeval tv;
 	fd_set rfds;
 	free(finalPath);
-//	free(absI);
+//	free(realPath);
 //	free(hoho);
 	FD_ZERO(&rfds);
-	FD_SET(clntSock, &rfds);
-//	if(FD_ISSET(clntSock, &rfds))
+	FD_SET(clientSocket, &rfds);
+//	if(FD_ISSET(clientSocket, &rfds))
 //		printf("YESSS \n");
 	tv.tv_sec = 10;
 	tv.tv_usec = 0;
 	int a = 0;
 
-	if(len > 2 && strcmp(request[2], "HTTP/1.1") == 0)
+	if(count > 2 && strcmp(request[2], "HTTP/1.1") == 0)
 	{
 		printf("http 1.1 \n");
 struct pollfd fds;
-fds.fd = clntSock;
+fds.fd = clientSocket;
 fds.events = POLLIN;
 fds.revents = POLLIN;
 a = poll(&fds, 1, 5000);
-//		a = select(clntSock, &rfds, NULL, NULL, &tv);
+//		a = select(clientSocket, &rfds, NULL, NULL, &tv);
 		//{
 			printf("Again !! %d\n", a);
-	//		th_handler((void *) clntSock);
+	//		th_handler((void *) clientSocket);
 		//}/
 	}
 //	signal(SIGALRM, alarm_f);
@@ -248,17 +311,40 @@ a = poll(&fds, 1, 5000);
 		printf("WHYYYS DSDSDSKDSKD %d\n", a);
 //	}	
 	if(a > 0)
-		//th_handler((void *) clntSock);
+		//th_handler((void *) clientSocket);
 	printf("End call \n");
-	close(clntSock);
+	close(clientSocket);
 
 	pthread_exit(NULL);
 }
 
-
-int main(int argc, char *argv[])
+/**************************************
+ * 
+ * NAME: void main
+ * 
+ * DESCRIPTION: Control function for http server, listens on specified port
+ * 				and spawns threads to handle client connections
+ * 
+ * INPUT: 
+ *      PARAMETERS:
+ * 			int			argc		Command-line arguments to create start 
+ * 									server. Takes in the port to listen on
+ * 									and the path to root of the folder to 
+ * 									server requests
+ * 		GLOBAL:
+ * 			None
+ * 		RETURN:
+ * 			None
+ * 
+ */
+void main(int argc, char *argv[])
 {
+	//Allocate space for the document root
+
 	docRoot = malloc(sizeof(char)*256);
+
+	//Check if port number is valid
+
 	if(argc != 3)
 	{
 		perror("Usage: <Port> <Document Root>\n");
@@ -273,10 +359,9 @@ int main(int argc, char *argv[])
 
 	in_port_t servPort = atoi(argv[1]);
 	docRoot = argv[2];
-//	if(docRoot[strlen(docRoot) -1] == '/')
-//		docRoot[strlen(docRoot) -1] = '\0';
 
-	//Create socket
+
+	//Create the server socket using defaults
 	
 	int servSock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if(servSock < 0)
@@ -285,7 +370,7 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	//Construct local address structure
+	//Construct local socket address structure
 	
 	struct sockaddr_in servAddr;
 	memset(&servAddr, 0, sizeof(servAddr));
@@ -294,6 +379,7 @@ int main(int argc, char *argv[])
 	
 	servAddr.sin_port = htons(servPort);
 
+	//Bind socket Address to servSock and listen for connections
 	if(bind(servSock, (struct sockaddr*) &servAddr, sizeof(servAddr)) < 0)
 	{
 		perror("bind() failed");
@@ -305,22 +391,21 @@ int main(int argc, char *argv[])
 		perror("listen() failed");
 		exit(1);
 	}
-	struct timeval tv;
-	tv.tv_sec = 10;
-	tv.tv_usec = 0;
+
+	// Infinite loop which blocks at accept and spawns a new pthread
+	// whenever a new client connect appears
 	for(;;)
 	{
-printf("Start infinite \n");
 		struct sockaddr_in clntAddr;
 		socklen_t clntAddrLen = sizeof(clntAddr);
-
-		int clntSock = accept(servSock, (struct sockaddr *) & clntAddr, &clntAddrLen);
-//		setsockopt(clntSock, SOL_SOCKET, SO_RCVTIMEO, (char *)&tv, sizeof(struct timeval));
-	pthread_t cre;
-		pthread_create(&cre, NULL, (void *) th_handler, (void *)clntSock);
+		// On a new connection, accept returns the client socket which we utilize
+		// to communicate with the client
+		int clientSocket = accept(servSock, (struct sockaddr *) & clntAddr, &clntAddrLen);
+		pthread_t cre;
+		// Spawn thread and exceute th_handler to serve the request
+		pthread_create(&cre, NULL, (void *) th_handler, (void *)clientSocket);
 
 
 	}
-//	close(clntSock);
 }
 
