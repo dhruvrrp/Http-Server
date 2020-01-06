@@ -1,3 +1,25 @@
+/***********************************************************************
+* 
+* FILENAME:        httpserver.c             
+*
+* DESCRIPTION:
+*       HTTP server to serve files from the file system.
+*
+*
+* NOTES:
+*       Identify any incoming connection and serve the requested
+*		file after checking constraints about file type, file permissions,
+*		request validity and handle errors in the form of responses.
+*
+*       Copyright Dhruv Kaushal 2015, 2020.  All rights reserved.
+*
+* AUTHOR:    Dhruv Kaushal        
+*
+* REVISED:
+*		5th Jan 2020
+**/
+
+
 #include <arpa/inet.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,12 +35,7 @@
 char * docRoot;
 
 int bufLen = 1024;
-/**void alarm_f(int s)
-{
-	signal(SIGALRM, SIG_IGN);
-	printf("alaarrmm \n");
-	signal(SIGALRM, alarm_f);
-}**/
+
 /**************************************
  * 
  * NAME: handle_400
@@ -106,7 +123,7 @@ void handle_403(int clientSocket)
  */
 void *th_handler(void * c)
 {
-	struct stat staa;
+	struct stat fileStat;
 	// Cast client socket to int to utilize
 	int clientSocket = (int)c;
 	printf("Someone connecteed!!! \n", c, clientSocket);
@@ -247,6 +264,7 @@ void *th_handler(void * c)
 				strcat(response, ftype);
 				strcat(response, "\r\n");
 			}
+			// If we can't open file then send 404 not found
 			else
 			{
 				handle_404(clientSocket);
@@ -255,20 +273,20 @@ void *th_handler(void * c)
 		if(fileDescriptor != -1)
 		{
 			printf("hoho \n");
-			fstat(fileDescriptor, &staa);
-			if(staa.st_mode & S_IROTH)
+			fstat(fileDescriptor, &fileStat);
+			if(fileStat.st_mode & S_IROTH)
 			{
-				int total = staa.st_size;
-				printf("size sent %ld \n", staa.st_size);
+				int total = fileStat.st_size;
+				printf("size sent %ld \n", fileStat.st_size);
 				strcat(response, "Content-Length: ");
 				char * numS= (char *) malloc(200);;
-				sprintf(numS, "%ld", staa.st_size);
+				sprintf(numS, "%ld", fileStat.st_size);
 				strcat(response, numS);	
 				strcat(response, "\r\n\r\n");
 
 				int a = send(clientSocket, response, strlen(response), 0);	
 
-				int qqq = sendfile(clientSocket, fileDescriptor, NULL, staa.st_size);
+				int qqq = sendfile(clientSocket, fileDescriptor, NULL, fileStat.st_size);
 			}
 			else
 			{
@@ -339,7 +357,7 @@ a = poll(&fds, 1, 5000);
  */
 void main(int argc, char *argv[])
 {
-	//Allocate space for the document root
+	//Allocate space for the document path root
 
 	docRoot = malloc(sizeof(char)*256);
 
